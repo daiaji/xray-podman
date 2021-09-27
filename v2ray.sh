@@ -60,9 +60,8 @@ DGST_PATH="${TMP_DIRECTORY}/${DGST_FILE}"
 echo "Downloading binary file: ${V2RAY_FILE}"
 echo "Downloading binary file: ${DGST_FILE}"
 
-TAG=$(curl -fsSL https://raw.githubusercontent.com/v2fly/docker/master/ReleaseTag | head -n1)
-curl -#Lo ${V2RAY_PATH} https://github.com/v2fly/v2ray-core/releases/download/${TAG}/${V2RAY_FILE}
-curl -fsSLo ${DGST_PATH} https://github.com/v2fly/v2ray-core/releases/download/${TAG}/${DGST_FILE}
+curl -fsSLo ${V2RAY_PATH} https://github.com/v2fly/v2ray-core/releases/latest/download/${V2RAY_FILE}
+curl -fsSLo ${DGST_PATH} https://github.com/v2fly/v2ray-core/releases/latest/download/${DGST_FILE}
 
 if [ $? -ne 0 ]; then
     echo "Error: Failed to download binary file: ${V2RAY_FILE} ${DGST_FILE}" && exit 1
