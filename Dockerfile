@@ -3,22 +3,21 @@ LABEL maintainer "Darian Raymond <admin@v2ray.com>"
 
 
 WORKDIR /root
-COPY v2ray.sh /root/v2ray.sh
+COPY xray.sh /root/xray.sh
 RUN set -ex \
   && apk --update add --no-cache tzdata openssl ca-certificates curl \
-  && mkdir -p /etc/v2ray /usr/local/share/v2ray /var/log/v2ray \
-  && chmod +x /root/v2ray.sh \
-  && /root/v2ray.sh \
-  && curl -fsSLo /usr/local/share/v2ray/h2y.dat https://raw.githubusercontent.com/ToutyRater/V2Ray-SiteDAT/master/geofiles/h2y.dat
+  && mkdir -p /usr/local/share/xray /var/log/xray \
+  && chmod +x /root/xray.sh \
+  && /root/xray.sh \
+  && curl -fsSLo /usr/local/share/xray/h2y.dat https://raw.githubusercontent.com/ToutyRater/V2Ray-SiteDAT/master/geofiles/h2y.dat
 
 
 FROM scratch
 
 
-COPY --from=builder /usr/bin/v2ray /usr/bin/v2ctl /usr/bin/
+COPY --from=builder /usr/bin/xray /usr/bin/
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY --from=builder /etc/v2ray/config.json /etc/v2ray/config.json
-COPY --from=builder /usr/local/share/v2ray/*.dat /usr/local/share/v2ray/
+COPY --from=builder /usr/local/share/xray/*.dat /usr/local/share/xray/
 
-ENTRYPOINT [ "v2ray" ]
-CMD [ "-config", "/etc/v2ray/config.json" ]
+ENTRYPOINT [ "xray" ]
+CMD [ "-config", "/etc/xray/config.json" ]
