@@ -1,0 +1,95 @@
+name: podman push
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The tag version you want to build"
+  push:
+    paths:
+      - "xray.sh"
+      - "Containerfile"
+      - ".github/workflows/podman-push.yml"
+
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "xray.sh"
+      - "Containerfile"
+      - ".github/workflows/podman-push.yml"
+
+  schedule:
+    - cron: '0 0 */15 * *'  # every day at midnight
+
+env:
+  IMAGE_TAG: latest
+  IMAGE_NAME: xray
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+
+      - name: Install qemu dependencies and update buildah
+        run: |
+          echo 'deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04/ /' | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
+          curl -fsSL https://download.opensuse.org/repositories/devel:kubic:libcontainers:unstable/xUbuntu_22.04/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-static buildah -o Dpkg::Options::="--force-overwrite"
+    
+      # Checkout buildah action github repository
+      - name: Checkout Buildah action
+        uses: actions/checkout@v2
+
+      - name: Get tag to build
+        id: tag
+        run: |
+          latest_tag=$(curl -sSL --retry 5 "https://api.github.com/repos/XTLS/Xray-core/releases/latest" | jq .tag_name | awk -F '"' '{print $2}')
+          if [[ -z "${{ github.event.inputs.tag }}" ]]; then
+            echo "Use the latest release tag of Xray-core: ${latest_tag}"
+            echo ::set-output name=tag::${latest_tag}
+          else
+            echo "Use tag: ${{ github.event.inputs.tag }}"
+            echo ::set-output name=tag::${{ github.event.inputs.tag }}
+          fi
+
+      - name: Build Image
+        id: build_image_multiplatform
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: ${{ env.IMAGE_NAME }}
+          tags: latest ${{ steps.tag.outputs.tag }}
+          platforms: linux/386, linux/amd64, linux/arm/v6, linux/arm/v7, linux/arm64
+          build-args: |
+            TAG=${{ steps.tag.outputs.tag }}
+          containerfiles: |
+            ./Containerfile
+
+      - name: Echo Outputs
+        run: |
+          echo "Image: ${{ steps.build_image_multiplatform.outputs.image }}"
+          echo "Tags: ${{ steps.build_image_multiplatform.outputs.tags }}"
+          echo "Tagged Image: ${{ steps.build_image_multiplatform.outputs.image-with-tag }}"
+
+      - name: Check images created
+        run: buildah images | grep '${{ env.IMAGE_NAME }}'
+
+      - name: Check manifest
+        run: |
+          set -x
+          buildah manifest inspect ${{ steps.build_image_multiplatform.outputs.image }}:${{ env.IMAGE_TAG }}
+
+      # Podman Login action (https://github.com/redhat-actions/podman-login) also be used to log in,
+      # in which case 'username' and 'password' can be omitted.
+      - name: Push To quay.io
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+        id: push-to-quay
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build_image_multiplatform.outputs.image }}
+          tags: ${{ steps.build_image_multiplatform.outputs.tags }}
+          registry: quay.io/${{ secrets.REGISTRY_USER }}
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Print image url
+        run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
