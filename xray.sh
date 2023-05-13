@@ -46,7 +46,7 @@ echo "Download binary file: ${XRAY_FILE} ${DGST_FILE} completed"
 
 # Check SHA512
 LOCAL=$(openssl dgst -sha512 xray.zip | sed 's/([^)]*)//g')
-STR=$(cat xray.zip.dgst | grep 'SHA512' | head -n1)
+STR=$(cat xray.zip.dgst | grep 'SHA2-512' | head -n1)
 
 if [ "${LOCAL}" = "${STR}" ]; then
     echo " Check passed" && rm -fv xray.zip.dgst
